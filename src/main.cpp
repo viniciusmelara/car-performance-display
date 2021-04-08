@@ -25,6 +25,17 @@
 
 #define PAIR_MAX_DEVICES 3
 
+#define DEBUG
+#define BAUD_RATE 115200
+
+#ifdef DEBUG
+#define DEBUG_PRINT(x) Serial.print(x);
+#define DEBUG_PRINTLN(x) Serial.println(x);
+#else
+#define DEBUG_PRINT(x)
+#define DEBUG_PRINTLN(x)
+#endif
+
 BluetoothSerial SerialBT;
 ELM327 myELM327;
 SSD1283A_GUI tft(/*CS*/ 5, /*CD*/ 33, /*RST*/ 32, /*LED*/ 25);
@@ -41,10 +52,32 @@ static SemaphoreHandle_t xSemaphore;
 void vWaitForOK(void)
 {
     vTaskDelay(50 / portTICK_PERIOD_MS);
+}
 
-    /* 
-    ...
-    */
+void vError(void)
+{
+#ifdef DEBUG
+    int8_t i8Status = myELM327.status;
+
+    if (i8Status == ELM_NO_RESPONSE)
+        Serial.println("ERROR: ELM_NO_RESPONSE");
+    else if (i8Status == ELM_BUFFER_OVERFLOW)
+        Serial.println("ERROR: ELM_BUFFER_OVERFLOW");
+    else if (i8Status == ELM_UNABLE_TO_CONNECT)
+        Serial.println("ERROR: ELM_UNABLE_TO_CONNECT");
+    else if (i8Status == ELM_NO_DATA)
+        Serial.println("ERROR: ELM_NO_DATA");
+    else if (i8Status == ELM_STOPPED)
+        Serial.println("ERROR: ELM_STOPPED");
+    else if (i8Status == ELM_TIMEOUT)
+        Serial.println("ERROR: ELM_TIMEOUT");
+#endif
+
+    SerialBT.println("AT"); // Stop
+    vWaitForOK();
+
+    SerialBT.println("AT Z"); // Reset All
+    vWaitForOK();
 }
 
 bool bInitBluetooth(void)
@@ -126,7 +159,7 @@ void vUnpairDevices(void)
                 for (register uint8_t i = 0; i < i32Count; i++)
                     esp_bt_gap_remove_bond_device(ui8PairedDeviceBtAddr[i]);
                 vTaskDelay(1000 / portTICK_PERIOD_MS);
-                
+
                 tft.Print_String("\n\tOK", LEFT, tft.Get_Text_Y_Cousur());
             }
         }
@@ -190,12 +223,18 @@ void vGetBoost(void *pvParameters)
         {
             ucBoost = myELM327.manifoldPressure();
 
+            if (myELM327.status == ELM_SUCCESS)
+                xQueueOverwrite(xQueueBoost, &ucBoost);
+            else
+            {
+                DEBUG_PRINT("Boost ");
+                vError();
+            }
+
             xSemaphoreGive(xSemaphore);
         }
 
-        xQueueSendToBack(xQueueBoost, &ucBoost, portMAX_DELAY);
-
-        vTaskDelay(50 / portTICK_PERIOD_MS);
+        vTaskDelay(300 / portTICK_PERIOD_MS);
     }
 }
 
@@ -209,12 +248,18 @@ void vGetIAT(void *pvParameters)
         {
             cIAT = myELM327.intakeAirTemp();
 
+            if (myELM327.status == ELM_SUCCESS)
+                xQueueOverwrite(xQueueIAT, &cIAT);
+            else
+            {
+                DEBUG_PRINT("IAT ");
+                vError();
+            }
+
             xSemaphoreGive(xSemaphore);
         }
 
-        xQueueSendToBack(xQueueIAT, &cIAT, portMAX_DELAY);
-
-        vTaskDelay(300 / portTICK_PERIOD_MS);
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
 }
 
@@ -277,15 +322,20 @@ void vGetOilAndCoolantTemp(void *pvParameters)
 
                 uint8_t ucTempCoolant = (cPayload[38] << 4) | cPayload[39];
                 cCoolant = ucTempCoolant - 40;
+
+                xQueueOverwrite(xQueueOil, &cOilTemp);
+                xQueueOverwrite(xQueueCoolant, &cCoolant);
+            }
+            else
+            {
+                DEBUG_PRINTLN("Oil Temp and Coolant ");
+                vError();
             }
 
             xSemaphoreGive(xSemaphore);
         }
 
-        xQueueSendToBack(xQueueOil, &cOilTemp, portMAX_DELAY);
-        xQueueSendToBack(xQueueCoolant, &cCoolant, portMAX_DELAY);
-
-        vTaskDelay(5000 / portTICK_PERIOD_MS);
+        vTaskDelay(15000 / portTICK_PERIOD_MS);
     }
 }
 
@@ -299,10 +349,16 @@ void vGetTimingAdvance(void *pvParameters)
         {
             cTimingAdvance = myELM327.timingAdvance();
 
+            if (myELM327.status == ELM_SUCCESS)
+                xQueueSendToBack(xQueueTimingAdvance, &cTimingAdvance, portMAX_DELAY);
+            else
+            {
+                DEBUG_PRINTLN("Timing ");
+                vError();
+            }
+
             xSemaphoreGive(xSemaphore);
         }
-
-        xQueueSendToBack(xQueueTimingAdvance, &cTimingAdvance, portMAX_DELAY);
 
         vTaskDelay(300 / portTICK_PERIOD_MS);
     }
@@ -318,10 +374,16 @@ void vGetHPFPPressure(void *pvParameters)
         {
             ui16HPFPPressure = myELM327.fuelRailGuagePressure();
 
+            if (myELM327.status == ELM_SUCCESS)
+                xQueueOverwrite(xQueueHPFPPressure, &ui16HPFPPressure);
+            else
+            {
+                DEBUG_PRINTLN("HPFP ");
+                vError();
+            }
+
             xSemaphoreGive(xSemaphore);
         }
-
-        xQueueSendToBack(xQueueHPFPPressure, &ui16HPFPPressure, portMAX_DELAY);
 
         vTaskDelay(300 / portTICK_PERIOD_MS);
     }
@@ -339,13 +401,13 @@ void vPrintBoost(void *pvParameters)
 
         if (xSemaphoreTake(xSemaphore, (TickType_t)10) == pdTRUE)
         {
-            if (myELM327.status == ELM_SUCCESS)
+            if ((ucReceivedBoost >= 1) && (ucReceivedBoost <= 254))
             {
                 static uint8_t ucBoostOld = 254;
 
                 if (ucReceivedBoost != ucBoostOld)
                 {
-                    if (ucReceivedBoost <= 100)
+                    if ((ucReceivedBoost >= 1) && (ucReceivedBoost <= 100))
                         fReceivedBoost = 0;
 
                     if (ucReceivedBoost <= 229)
@@ -363,12 +425,15 @@ void vPrintBoost(void *pvParameters)
 
                     ucBoostOld = ucReceivedBoost;
                 }
+
+                DEBUG_PRINT("Boost: ");
+                DEBUG_PRINTLN(fReceivedBoost);
             }
 
             xSemaphoreGive(xSemaphore);
         }
 
-        vTaskDelay(50 / portTICK_PERIOD_MS);
+        vTaskDelay(300 / portTICK_PERIOD_MS);
     }
 }
 
@@ -382,36 +447,36 @@ void vPrintIAT(void *pvParameters)
 
         if (xSemaphoreTake(xSemaphore, (TickType_t)10) == pdTRUE)
         {
-            if (myELM327.status == ELM_SUCCESS)
+            if ((cReceivedIAT >= -39) && (cReceivedIAT <= 126))
             {
-                if ((cReceivedIAT <= 126) && (cReceivedIAT >= -39))
+                static int8_t cIATOld = 127;
+
+                if (cReceivedIAT != cIATOld)
                 {
-                    static int8_t cIATOld = 127;
+                    if (cReceivedIAT <= 39)
+                        tft.Set_Text_colour(WHITE);
+                    else if ((cReceivedIAT >= 40) && (cReceivedIAT <= 49))
+                        tft.Set_Text_colour(YELLOW);
+                    else if ((cReceivedIAT >= 50) && (cReceivedIAT <= 59))
+                        tft.Set_Text_colour(ORANGE);
+                    else if (cReceivedIAT >= 60)
+                        tft.Set_Text_colour(RED);
 
-                    if (cReceivedIAT != cIATOld)
-                    {
-                        if (cReceivedIAT <= 39)
-                            tft.Set_Text_colour(WHITE);
-                        else if ((cReceivedIAT >= 40) && (cReceivedIAT <= 49))
-                            tft.Set_Text_colour(YELLOW);
-                        else if ((cReceivedIAT >= 50) && (cReceivedIAT <= 59))
-                            tft.Set_Text_colour(ORANGE);
-                        else if (cReceivedIAT >= 60)
-                            tft.Set_Text_colour(RED);
+                    tft.Set_Text_Back_colour(BLACK);
+                    tft.Set_Text_Size(3);
+                    tft.Print_Number_Int(cReceivedIAT, 7, 59, 4, ' ', 10);
 
-                        tft.Set_Text_Back_colour(BLACK);
-                        tft.Set_Text_Size(3);
-                        tft.Print_Number_Int(cReceivedIAT, 7, 59, 4, ' ', 10);
-
-                        cIATOld = cReceivedIAT;
-                    }
+                    cIATOld = cReceivedIAT;
                 }
+
+                DEBUG_PRINT("IAT: ");
+                DEBUG_PRINTLN(cReceivedIAT);
             }
 
             xSemaphoreGive(xSemaphore);
         }
 
-        vTaskDelay(300 / portTICK_PERIOD_MS);
+        vTaskDelay(5000 / portTICK_PERIOD_MS);
     }
 }
 
@@ -427,7 +492,7 @@ void vPrintOilAndCoolantTemp(void *pvParameters)
 
         if (xSemaphoreTake(xSemaphore, (TickType_t)10) == pdTRUE)
         {
-            if ((cReceivedOilTemperature <= 126) && (cReceivedOilTemperature >= -39))
+            if ((cReceivedOilTemperature >= -39) && (cReceivedOilTemperature <= 126))
             {
                 static int8_t cReceivedOilTemperatureOld = 0;
 
@@ -450,9 +515,12 @@ void vPrintOilAndCoolantTemp(void *pvParameters)
 
                     cReceivedOilTemperatureOld = cReceivedOilTemperature;
                 }
+
+                DEBUG_PRINT("Oil Temp: ");
+                DEBUG_PRINTLN(cReceivedOilTemperature);
             }
 
-            if ((cReceivedCoolantTemperature <= 126) && (cReceivedCoolantTemperature >= -39))
+            if ((cReceivedCoolantTemperature >= -39) && (cReceivedCoolantTemperature <= 126))
             {
                 static int8_t cReceivedCoolantTemperatureOld = 0;
 
@@ -475,12 +543,15 @@ void vPrintOilAndCoolantTemp(void *pvParameters)
 
                     cReceivedCoolantTemperatureOld = cReceivedCoolantTemperature;
                 }
+
+                DEBUG_PRINT("Coolant: ");
+                DEBUG_PRINTLN(cReceivedCoolantTemperature);
             }
 
             xSemaphoreGive(xSemaphore);
         }
 
-        vTaskDelay(5000 / portTICK_PERIOD_MS);
+        vTaskDelay(15000 / portTICK_PERIOD_MS);
     }
 }
 
@@ -494,22 +565,22 @@ void vPrintTimingAdvance(void *pvParameters)
 
         if (xSemaphoreTake(xSemaphore, (TickType_t)10) == pdTRUE)
         {
-            if (myELM327.status == ELM_SUCCESS)
+            if ((cReceivedTimingAdvance >= -63) && (cReceivedTimingAdvance <= 63))
             {
-                if ((cReceivedTimingAdvance <= 60) && (cReceivedTimingAdvance >= -60))
+                static int8_t cReceivedTimingAdvanceOld = 127;
+
+                if (cReceivedTimingAdvance != cReceivedTimingAdvanceOld)
                 {
-                    static int8_t cReceivedTimingAdvanceOld = 127;
+                    tft.Set_Text_colour(WHITE);
+                    tft.Set_Text_Back_colour(BLACK);
+                    tft.Set_Text_Size(2);
+                    tft.Print_Number_Int(cReceivedTimingAdvance, 48, 100, 4, ' ', 10);
 
-                    if (cReceivedTimingAdvance != cReceivedTimingAdvanceOld)
-                    {
-                        tft.Set_Text_colour(WHITE);
-                        tft.Set_Text_Back_colour(BLACK);
-                        tft.Set_Text_Size(2);
-                        tft.Print_Number_Int(cReceivedTimingAdvance, 48, 100, 4, ' ', 10);
-
-                        cReceivedTimingAdvanceOld = cReceivedTimingAdvance;
-                    }
+                    cReceivedTimingAdvanceOld = cReceivedTimingAdvance;
                 }
+
+                DEBUG_PRINT("Timing: ");
+                DEBUG_PRINTLN(cReceivedTimingAdvance);
             }
 
             xSemaphoreGive(xSemaphore);
@@ -531,22 +602,22 @@ void vPrintHPFPPressure(void *pvParameters)
 
         if (xSemaphoreTake(xSemaphore, (TickType_t)10) == pdTRUE)
         {
-            if (myELM327.status == ELM_SUCCESS)
+            if ((ucReceivedHPFPPressure >= 1) && (ucReceivedHPFPPressure <= 254))
             {
-                if ((ucReceivedHPFPPressure <= 254) && (ucReceivedHPFPPressure > 0))
+                static uint8_t ucReceivedHPFPPressureOld = 254;
+
+                if (ucReceivedHPFPPressure != ucReceivedHPFPPressureOld)
                 {
-                    static uint8_t ucReceivedHPFPPressureOld = 254;
+                    tft.Set_Text_colour(WHITE);
+                    tft.Set_Text_Back_colour(BLACK);
+                    tft.Set_Text_Size(2);
+                    tft.Print_Number_Int(ucReceivedHPFPPressure, 90, 100, 4, ' ', 10);
 
-                    if (ucReceivedHPFPPressure != ucReceivedHPFPPressureOld)
-                    {
-                        tft.Set_Text_colour(WHITE);
-                        tft.Set_Text_Back_colour(BLACK);
-                        tft.Set_Text_Size(2);
-                        tft.Print_Number_Int(ucReceivedHPFPPressure, 90, 100, 4, ' ', 10);
-
-                        ucReceivedHPFPPressureOld = ucReceivedHPFPPressure;
-                    }
+                    ucReceivedHPFPPressureOld = ucReceivedHPFPPressure;
                 }
+
+                DEBUG_PRINT("HPFP: ");
+                DEBUG_PRINTLN(ui16ReceivedHPFPPressure);
             }
 
             xSemaphoreGive(xSemaphore);
@@ -558,15 +629,19 @@ void vPrintHPFPPressure(void *pvParameters)
 
 void setup()
 {
+#ifdef DEBUG
+    Serial.begin(BAUD_RATE);
+#endif
+
     xSemaphore = xSemaphoreCreateMutex();
     xSemaphoreGive(xSemaphore);
 
-    xQueueBoost = xQueueCreate(5, sizeof(uint8_t));
-    xQueueIAT = xQueueCreate(5, sizeof(int8_t));
-    xQueueOil = xQueueCreate(5, sizeof(int8_t));
-    xQueueCoolant = xQueueCreate(5, sizeof(int8_t));
-    xQueueTimingAdvance = xQueueCreate(5, sizeof(int8_t));
-    xQueueHPFPPressure = xQueueCreate(5, sizeof(uint16_t));
+    xQueueBoost = xQueueCreate(1, sizeof(uint8_t));
+    xQueueIAT = xQueueCreate(1, sizeof(int8_t));
+    xQueueOil = xQueueCreate(1, sizeof(int8_t));
+    xQueueCoolant = xQueueCreate(1, sizeof(int8_t));
+    xQueueTimingAdvance = xQueueCreate(1, sizeof(int8_t));
+    xQueueHPFPPressure = xQueueCreate(1, sizeof(uint16_t));
 
     bInitBluetooth();
     vSetupDisplay();
@@ -575,16 +650,16 @@ void setup()
     vHomeScreen();
 
     xTaskCreatePinnedToCore(vGetBoost, "Get Boost Task", 2048 * 4, NULL, 4, NULL, CORE_0);
-    xTaskCreatePinnedToCore(vGetIAT, "Get IAT Task", 2048 * 4, NULL, 3, NULL, CORE_0);
+    xTaskCreatePinnedToCore(vGetIAT, "Get IAT Task", 2048 * 4, NULL, 2, NULL, CORE_0);
     xTaskCreatePinnedToCore(vGetOilAndCoolantTemp, "Get Oil and Coolant Temperatures", 2048 * 8, NULL, 2, NULL, CORE_0);
-    xTaskCreatePinnedToCore(vGetTimingAdvance, "Get Timing Advance (Relative to 1st Cylinder)", 2048 * 4, NULL, 2, NULL, CORE_0);
-    xTaskCreatePinnedToCore(vGetHPFPPressure, "Get High Pressure Fuel Pump Pressure", 2048 * 4, NULL, 2, NULL, CORE_0);
+    xTaskCreatePinnedToCore(vGetTimingAdvance, "Get Timing Advance (Relative to 1st Cylinder)", 2048 * 4, NULL, 3, NULL, CORE_0);
+    xTaskCreatePinnedToCore(vGetHPFPPressure, "Get High Pressure Fuel Pump Pressure", 2048 * 4, NULL, 3, NULL, CORE_0);
 
     xTaskCreatePinnedToCore(vPrintBoost, "Print Boost", 2048 * 4, NULL, 4, NULL, CORE_1);
-    xTaskCreatePinnedToCore(vPrintIAT, "Print IAT", 2048 * 4, NULL, 3, NULL, CORE_1);
+    xTaskCreatePinnedToCore(vPrintIAT, "Print IAT", 2048 * 4, NULL, 2, NULL, CORE_1);
     xTaskCreatePinnedToCore(vPrintOilAndCoolantTemp, "Print Oil and Coolant Temperatures", 2048 * 8, NULL, 2, NULL, CORE_1);
-    xTaskCreatePinnedToCore(vPrintTimingAdvance, "Print Timing Advance (Relative to 1st Cylinder)", 2048 * 4, NULL, 2, NULL, CORE_1);
-    xTaskCreatePinnedToCore(vPrintHPFPPressure, "Print High Pressure Fuel Pump Pressure", 2048 * 4, NULL, 2, NULL, CORE_1);
+    xTaskCreatePinnedToCore(vPrintTimingAdvance, "Print Timing Advance (Relative to 1st Cylinder)", 2048 * 4, NULL, 3, NULL, CORE_1);
+    xTaskCreatePinnedToCore(vPrintHPFPPressure, "Print High Pressure Fuel Pump Pressure", 2048 * 4, NULL, 3, NULL, CORE_1);
 }
 
 void loop()
