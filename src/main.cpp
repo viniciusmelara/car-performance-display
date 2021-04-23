@@ -649,17 +649,17 @@ void setup()
     vSetupELM();
     vHomeScreen();
 
-    xTaskCreatePinnedToCore(vGetBoost, "Get Boost Task", 2048 * 4, NULL, 4, NULL, CORE_0);
-    xTaskCreatePinnedToCore(vGetIAT, "Get IAT Task", 2048 * 4, NULL, 2, NULL, CORE_0);
-    xTaskCreatePinnedToCore(vGetOilAndCoolantTemp, "Get Oil and Coolant Temperatures", 2048 * 8, NULL, 2, NULL, CORE_0);
-    xTaskCreatePinnedToCore(vGetTimingAdvance, "Get Timing Advance (Relative to 1st Cylinder)", 2048 * 4, NULL, 3, NULL, CORE_0);
-    xTaskCreatePinnedToCore(vGetHPFPPressure, "Get High Pressure Fuel Pump Pressure", 2048 * 4, NULL, 3, NULL, CORE_0);
+    xTaskCreatePinnedToCore(vGetBoost, "Get Boost Task", 1024 * 3, NULL, 4, NULL, CORE_0);
+    xTaskCreatePinnedToCore(vGetIAT, "Get IAT Task", 1024 * 3, NULL, 2, NULL, CORE_0);
+    xTaskCreatePinnedToCore(vGetOilAndCoolantTemp, "Get Oil and Coolant Temperatures", 1024 * 3, NULL, 2, NULL, CORE_0);
+    xTaskCreatePinnedToCore(vGetTimingAdvance, "Get Timing Advance (Relative to 1st Cylinder)", 1024 * 3, NULL, 3, NULL, CORE_0);
+    xTaskCreatePinnedToCore(vGetHPFPPressure, "Get High Pressure Fuel Pump Pressure", 1024 * 3, NULL, 3, NULL, CORE_0);
 
-    xTaskCreatePinnedToCore(vPrintBoost, "Print Boost", 2048 * 4, NULL, 4, NULL, CORE_1);
-    xTaskCreatePinnedToCore(vPrintIAT, "Print IAT", 2048 * 4, NULL, 2, NULL, CORE_1);
-    xTaskCreatePinnedToCore(vPrintOilAndCoolantTemp, "Print Oil and Coolant Temperatures", 2048 * 8, NULL, 2, NULL, CORE_1);
-    xTaskCreatePinnedToCore(vPrintTimingAdvance, "Print Timing Advance (Relative to 1st Cylinder)", 2048 * 4, NULL, 3, NULL, CORE_1);
-    xTaskCreatePinnedToCore(vPrintHPFPPressure, "Print High Pressure Fuel Pump Pressure", 2048 * 4, NULL, 3, NULL, CORE_1);
+    xTaskCreatePinnedToCore(vPrintBoost, "Print Boost", 1024 * 3, NULL, 4, NULL, CORE_1);
+    xTaskCreatePinnedToCore(vPrintIAT, "Print IAT", 1024 * 3, NULL, 2, NULL, CORE_1);
+    xTaskCreatePinnedToCore(vPrintOilAndCoolantTemp, "Print Oil and Coolant Temperatures", 1024 * 3, NULL, 2, NULL, CORE_1);
+    xTaskCreatePinnedToCore(vPrintTimingAdvance, "Print Timing Advance (Relative to 1st Cylinder)", 1024 * 3, NULL, 3, NULL, CORE_1);
+    xTaskCreatePinnedToCore(vPrintHPFPPressure, "Print High Pressure Fuel Pump Pressure", 1024 * 3, NULL, 3, NULL, CORE_1);
 }
 
 void loop()
