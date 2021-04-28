@@ -7,6 +7,7 @@
 #include "freertos/semphr.h"
 #include "esp_bt_main.h"
 #include "esp_gap_bt_api.h"
+#include "nvs_flash.h"
 #include <LCDWIKI_GUI.h>
 #include <SSD1283A.h>
 
@@ -30,8 +31,8 @@
 #define DEBUG_PRINT(x) Serial.print(x);
 #define DEBUG_PRINTLN(x) Serial.println(x);
 #else
-#define DEBUG_PRINT(x);
-#define DEBUG_PRINTLN(x);
+#define DEBUG_PRINT(x) ;
+#define DEBUG_PRINTLN(x) ;
 #endif
 
 BluetoothSerial SerialBT;
@@ -629,6 +630,14 @@ void setup()
 #ifdef DEBUG
     Serial.begin(BAUD_RATE);
 #endif
+
+    esp_err_t i32NVSReturn = nvs_flash_init();
+    if (i32NVSReturn == ESP_ERR_NVS_NO_FREE_PAGES || i32NVSReturn == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        i32NVSReturn = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(i32NVSReturn);
 
     xSemaphore = xSemaphoreCreateMutex();
     xSemaphoreGive(xSemaphore);
