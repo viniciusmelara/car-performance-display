@@ -19,12 +19,12 @@
 #define RED 0xF800
 #define MAGENTA 0xF81F
 
-#define CORE_0 0
+#define CORE_0 1
 #define CORE_1 1
 
 #define PAIR_MAX_DEVICES 3
 
-//#define DEBUG
+#define DEBUG
 #define BAUD_RATE 115200
 
 #ifdef DEBUG
@@ -257,7 +257,7 @@ void vGetIAT(void *pvParameters)
             xSemaphoreGive(xSemaphore);
         }
 
-        vTaskDelay(5000 / portTICK_PERIOD_MS);
+        vTaskDelay(500 / portTICK_PERIOD_MS);
     }
 }
 
@@ -333,7 +333,7 @@ void vGetOilAndCoolantTemp(void *pvParameters)
             xSemaphoreGive(xSemaphore);
         }
 
-        vTaskDelay(15000 / portTICK_PERIOD_MS);
+        vTaskDelay(1500 / portTICK_PERIOD_MS);
     }
 }
 
@@ -474,7 +474,7 @@ void vPrintIAT(void *pvParameters)
             xSemaphoreGive(xSemaphore);
         }
 
-        vTaskDelay(5000 / portTICK_PERIOD_MS);
+        vTaskDelay(500 / portTICK_PERIOD_MS);
     }
 }
 
@@ -549,7 +549,7 @@ void vPrintOilAndCoolantTemp(void *pvParameters)
             xSemaphoreGive(xSemaphore);
         }
 
-        vTaskDelay(15000 / portTICK_PERIOD_MS);
+        vTaskDelay(1500 / portTICK_PERIOD_MS);
     }
 }
 
@@ -670,5 +670,6 @@ void setup()
 
 void loop()
 {
-    vTaskDelay(100 / portTICK_PERIOD_MS);
+    //vTaskDelay(100 / portTICK_PERIOD_MS);
+    vTaskDelete(NULL);
 }
