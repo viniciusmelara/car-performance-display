@@ -6,11 +6,9 @@
 #include "freertos/queue.h"
 #include "freertos/semphr.h"
 #include "esp_bt_main.h"
-#include "esp_bt_device.h"
 #include "esp_gap_bt_api.h"
-#include "esp_err.h"
 #include <LCDWIKI_GUI.h>
-#include <SSD1283A.h> // SPI SPEED = 70 MHz
+#include <SSD1283A.h>
 
 #define BLACK 0x0000
 #define CYAN 0x07FF
@@ -25,15 +23,15 @@
 
 #define PAIR_MAX_DEVICES 3
 
-#define DEBUG
+//#define DEBUG
 #define BAUD_RATE 115200
 
 #ifdef DEBUG
 #define DEBUG_PRINT(x) Serial.print(x);
 #define DEBUG_PRINTLN(x) Serial.println(x);
 #else
-#define DEBUG_PRINT(x)
-#define DEBUG_PRINTLN(x)
+#define DEBUG_PRINT(x);
+#define DEBUG_PRINTLN(x);
 #endif
 
 BluetoothSerial SerialBT;
@@ -84,19 +82,19 @@ bool bInitBluetooth(void)
 {
     if (!btStart())
     {
-        //Serial.println("Failed to initialize controller");
+        DEBUG_PRINTLN("Failed to initialize controller");
         return false;
     }
 
     if (esp_bluedroid_init() != ESP_OK)
     {
-        //Serial.println("Failed to initialize bluedroid");
+        DEBUG_PRINTLN("Failed to initialize bluedroid");
         return false;
     }
 
     if (esp_bluedroid_enable() != ESP_OK)
     {
-        //Serial.println("Failed to enable bluedroid");
+        DEBUG_PRINTLN("Failed to enable bluedroid");
         return false;
     }
     return true;
@@ -180,7 +178,6 @@ void vSetupELM(void)
         ;
     vTaskDelay(1500 / portTICK_PERIOD_MS);
 
-    vTaskDelay(1500 / portTICK_PERIOD_MS);
     while (!myELM327.begin(SerialBT, '0'))
         ;
     tft.Print_String("\n\tConnected to OBDII", LEFT, tft.Get_Text_Y_Cousur());
