@@ -347,7 +347,7 @@ void vGetTimingAdvance(void *pvParameters)
             cTimingAdvance = myELM327.timingAdvance();
 
             if (myELM327.status == ELM_SUCCESS)
-                xQueueSendToBack(xQueueTimingAdvance, &cTimingAdvance, portMAX_DELAY);
+                xQueueOverwrite(xQueueTimingAdvance, &cTimingAdvance);
             else
             {
                 DEBUG_PRINTLN("Timing ");
@@ -392,7 +392,7 @@ void vPrintBoost(void *pvParameters)
 
     for (;;)
     {
-        xQueueReceive(xQueueBoost, &ucReceivedBoost, portMAX_DELAY);
+        xQueuePeek(xQueueBoost, &ucReceivedBoost, portMAX_DELAY);
 
         float fReceivedBoost = ((float)ucReceivedBoost / 100) - 1;
 
@@ -440,7 +440,7 @@ void vPrintIAT(void *pvParameters)
 
     for (;;)
     {
-        xQueueReceive(xQueueIAT, &cReceivedIAT, portMAX_DELAY);
+        xQueuePeek(xQueueIAT, &cReceivedIAT, portMAX_DELAY);
 
         if (xSemaphoreTake(xSemaphore, (TickType_t)10) == pdTRUE)
         {
@@ -484,8 +484,8 @@ void vPrintOilAndCoolantTemp(void *pvParameters)
 
     for (;;)
     {
-        xQueueReceive(xQueueOil, &cReceivedOilTemperature, portMAX_DELAY);
-        xQueueReceive(xQueueCoolant, &cReceivedCoolantTemperature, portMAX_DELAY);
+        xQueuePeek(xQueueOil, &cReceivedOilTemperature, portMAX_DELAY);
+        xQueuePeek(xQueueCoolant, &cReceivedCoolantTemperature, portMAX_DELAY);
 
         if (xSemaphoreTake(xSemaphore, (TickType_t)10) == pdTRUE)
         {
@@ -558,7 +558,7 @@ void vPrintTimingAdvance(void *pvParameters)
 
     for (;;)
     {
-        xQueueReceive(xQueueTimingAdvance, &cReceivedTimingAdvance, portMAX_DELAY);
+        xQueuePeek(xQueueTimingAdvance, &cReceivedTimingAdvance, portMAX_DELAY);
 
         if (xSemaphoreTake(xSemaphore, (TickType_t)10) == pdTRUE)
         {
@@ -593,7 +593,7 @@ void vPrintHPFPPressure(void *pvParameters)
 
     for (;;)
     {
-        xQueueReceive(xQueueHPFPPressure, &ui16ReceivedHPFPPressure, portMAX_DELAY);
+        xQueuePeek(xQueueHPFPPressure, &ui16ReceivedHPFPPressure, portMAX_DELAY);
 
         uint8_t ucReceivedHPFPPressure = ui16ReceivedHPFPPressure / 100;
 
