@@ -16,3 +16,5 @@ Below are a photo and a video of the display working. The bigger values are the 
 ![Photo](https://github.com/viniciusmelara/car-performance-display/blob/main/img/IMG_20210509_184338.png)
 
 [![Video](https://img.youtube.com/vi/uSTarYhGWlQ/maxresdefault.jpg)](https://youtu.be/uSTarYhGWlQ)
+
+in the video above, the timing was not being printed correctly and the maximum values were not coded at the time
