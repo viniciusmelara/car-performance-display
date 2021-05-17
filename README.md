@@ -11,7 +11,7 @@ esp32 + elm327 + bluetooth + display (ssd1283a) + freertos
 
 * programmed in c/c++ with freertos
 
-Below are a photo and a video of the display working. The bigger values are the <i>real time</i> values and the smaller are the maximum values
+below are a photo and a video of the display working. The bigger values are the <i>real time</i> values and the smaller are the maximum values
 
 ![Photo](https://github.com/viniciusmelara/car-performance-display/blob/main/img/IMG_20210509_184338.png)
 
